@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Header Auditor — Web Security Scanner</title>
+<meta name="description" content="Audit security headers, TLS certificates, cookies and malware reputation for any public URL.">
+<meta name="color-scheme" content="light dark">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   THEMES — CSS custom properties, remapped per data-theme
+   ============================================================ */
+:root, [data-theme="light"] {
+  --bg:#f8fafc; --panel:#ffffff; --panel-2:#f1f5f9; --panel-3:#e2e8f0;
+  --border:#e2e8f0; --border-strong:#cbd5e1;
+  --text:#0f172a; --text-soft:#334155; --text-muted:#64748b; --text-faint:#94a3b8;
+  --accent:#0f172a; --accent-text:#ffffff; --accent-hover:#1e293b;
+  --ok-bg:#f0fdf4; --ok-text:#15803d; --ok-border:#bbf7d0; --ok-dot:#22c55e;
+  --warn-bg:#fffbeb; --warn-text:#b45309; --warn-border:#fde68a; --warn-dot:#f59e0b;
+  --bad-bg:#fef2f2; --bad-text:#b91c1c; --bad-border:#fecaca; --bad-dot:#ef4444;
+  --info-bg:#eff6ff; --info-text:#1d4ed8; --info-border:#bfdbfe;
+  --shadow:0 1px 2px rgba(15,23,42,.05);
+  --shadow-lg:0 4px 16px rgba(15,23,42,.08);
+  --radius:.75rem;
+  --scanline: none;
+  --glow: none;
+}
+
+[data-theme="dark"] {
+  --bg:#0b0f17; --panel:#111827; --panel-2:#1a2332; --panel-3:#243044;
+  --border:#1f2937; --border-strong:#334155;
+  --text:#f1f5f9; --text-soft:#cbd5e1; --text-muted:#94a3b8; --text-faint:#64748b;
+  --accent:#e2e8f0; --accent-text:#0b0f17; --accent-hover:#f1f5f9;
+  --ok-bg:#052e16; --ok-text:#4ade80; --ok-border:#14532d; --ok-dot:#22c55e;
+  --warn-bg:#3b2f06; --warn-text:#fbbf24; --warn-border:#713f12; --warn-dot:#f59e0b;
+  --bad-bg:#3f1215; --bad-text:#f87171; --bad-border:#7f1d1d; --bad-dot:#ef4444;
+  --info-bg:#0c1e3e; --info-text:#60a5fa; --info-border:#1e3a8a;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+  --shadow-lg:0 4px 20px rgba(0,0,0,.5);
+}
+
+[data-theme="hacker"] {
+  --bg:#000000; --panel:#050a05; --panel-2:#0a140a; --panel-3:#0f1f0f;
+  --border:#143314; --border-strong:#1f5c1f;
+  --text:#00ff41; --text-soft:#4ade80; --text-muted:#22c55e; --text-faint:#15803d;
+  --accent:#00ff41; --accent-text:#000000; --accent-hover:#22ff5c;
+  --ok-bg:#041a04; --ok-text:#00ff41; --ok-border:#0d5c0d; --ok-dot:#00ff41;
+  --warn-bg:#1a1200; --warn-text:#ffd700; --warn-border:#5c4a00; --warn-dot:#ffd700;
+  --bad-bg:#1a0000; --bad-text:#ff3333; --bad-border:#5c0000; --bad-dot:#ff3333;
+  --info-bg:#001a1a; --info-text:#00ffcc; --info-border:#005c5c;
+  --shadow:0 0 0 1px rgba(0,255,65,.15);
+  --shadow-lg:0 0 24px rgba(0,255,65,.12);
+  --scanline: repeating-linear-gradient(
+    to bottom,
+    rgba(0,255,65,.035) 0px,
+    rgba(0,255,65,.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  --glow: 0 0 12px rgba(0,255,65,.25);
+}
+
+/* Map the app's palette onto the theme vars */
+body { background:var(--bg); color:var(--text); }
+
+.t-panel   { background:var(--panel); border-color:var(--border); box-shadow:var(--shadow); }
+.t-panel-2 { background:var(--panel-2); border-color:var(--border); }
+.t-border  { border-color:var(--border); }
+.t-border-s{ border-color:var(--border-strong); }
+.t-text    { color:var(--text); }
+.t-soft    { color:var(--text-soft); }
+.t-muted   { color:var(--text-muted); }
+.t-faint   { color:var(--text-faint); }
+.t-accent  { background:var(--accent); color:var(--accent-text); }
+.t-accent:hover { background:var(--accent-hover); }
+
+.t-ok   { background:var(--ok-bg);   color:var(--ok-text);   border-color:var(--ok-border); }
+.t-warn { background:var(--warn-bg); color:var(--warn-text); border-color:var(--warn-border); }
+.t-bad  { background:var(--bad-bg);  color:var(--bad-text);  border-color:var(--bad-border); }
+.t-info { background:var(--info-bg); color:var(--info-text); border-color:var(--info-border); }
+
+.t-divide > * + * { border-color:var(--border); }
+
+[data-theme="hacker"] body,
+[data-theme="hacker"] input,
+[data-theme="hacker"] button { font-family:'JetBrains Mono',ui-monospace,monospace !important; }
+
+[data-theme="hacker"] .t-panel { box-shadow:var(--shadow); }
+[data-theme="hacker"] input:focus,
+[data-theme="hacker"] button:focus-visible {
+  outline:none;
+  border-color:var(--accent) !important;
+  box-shadow:var(--glow) !important;
+}
+
+/* Scanline overlay for hacker mode */
+[data-theme="hacker"]::before {
+  content:'';
+  position:fixed; inset:0;
+  background:var(--scanline);
+  pointer-events:none;
+  z-index:60;
+  animation:scan 8s linear infinite;
+}
+@keyframes scan { 0%{transform:translateY(0)} 100%{transform:translateY(3px)} }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="hacker"]::before { animation:none; }
+  * { transition-duration:.01ms !important; animation-duration:.01ms !important; }
+}
+
+/* Chrome */
+.sticky-nav { background:color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter:blur(12px); }
+.ring-focus:focus-within { box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent); }
+.spin { animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg) } }
+.pulse-dot { animation:pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+[hidden] { display:none !important; }
+code, pre { font-family:'JetBrains Mono',ui-monospace,monospace; }
+::-webkit-scrollbar { width:10px; height:10px }
+::-webkit-scrollbar-track { background:var(--panel-2) }
+::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:5px }
+</style>
+</head>
+
+<body class="min-h-screen antialiased">
+<div class="noise pointer-events-none fixed inset-0 opacity-[.012]" style="background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;)"></div>
+
+<!-- ═══════════ NAV ═══════════ -->
+<header class="sticky top-0 z-50 sticky-nav border-b t-border">
+  <div class="mx-auto max-w-6xl px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <div class="h-7 w-7 rounded-lg t-accent grid place-items-center shrink-0">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <span class="font-semibold tracking-tight t-text whitespace-nowrap">Header<span class="t-faint font-normal">Auditor</span></span>
+      <span class="hidden sm:inline text-[10px] font-medium px-1.5 py-0.5 rounded t-panel-2 t-muted t-border border">v2.0</span>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Theme switcher -->
+      <div class="flex items-center gap-0.5 p-0.5 rounded-lg t-panel-2 border t-border" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="light" title="Light theme" aria-label="Light theme"
+          class="theme-btn h-7 w-7 grid place-items-center rounded-md transition">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+        <button type="button" data-theme-set="dark" title="Dark theme" aria-label="Dark theme"
+          class="theme-btn h-7 w-7 grid place-items-center rounded-md transition">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+        <button type="button" data-theme-set="hacker" title="Hacker mode" aria-label="Hacker mode"
+          class="theme-btn h-7 w-7 grid place-items-center rounded-md transition font-mono text-[10px] font-bold">&gt;_</button>
+      </div>
+
+      <button type="button" id="history-btn" title="Scan history" aria-label="Scan history"
+        class="h-8 w-8 grid place-items-center rounded-lg t-panel-2 border t-border t-muted hover:text-[var(--text)] transition relative">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>
+        <span id="history-badge" class="hidden absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-[var(--bad-text)] text-[10px] font-bold text-[var(--panel)] grid place-items-center"></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-10 sm:py-14">
+
+  <!-- ═══════════ HERO ═══════════ -->
+  <section class="max-w-3xl mx-auto text-center">
+    <h1 class="text-3xl sm:text-[2.6rem] font-bold tracking-tight leading-[1.1] t-text">
+      Audit your site's security posture
+    </h1>
+    <p class="mt-3 text-base sm:text-lg t-muted">
+      Headers, TLS certificate, cookies and malware reputation — one scan, scored and graded.
+    </p>
+
+    <form id="scan-form" class="mt-7 flex flex-col sm:flex-row gap-2.5">
+      <div class="relative flex-1 ring-focus rounded-xl transition-shadow">
+        <svg class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 t-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="url-input" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+               placeholder="example.com"
+               class="w-full h-12 pl-10 pr-4 text-[15px] t-panel border rounded-xl placeholder:t-faint focus:outline-none transition" />
+      </div>
+      <button id="scan-btn" type="submit"
+              class="h-12 px-6 rounded-xl t-accent font-medium text-[15px] active:scale-[.98] transition disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 shrink-0">
+        <span id="btn-label">Scan</span>
+        <svg id="btn-spinner" class="h-4 w-4 spin hidden" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      </button>
+    </form>
+
+    <div class="mt-3 flex items-center justify-center gap-3 text-xs t-faint flex-wrap">
+      <span>Press <kbd class="px-1.5 py-0.5 rounded border t-border t-panel-2 text-[10px] t-muted">/</kbd> to focus</span>
+      <span class="hidden sm:inline">·</span>
+      <span id="feed-status">loading threat feeds…</span>
+    </div>
+  </section>
+
+  <!-- ═══════════ ERROR ═══════════ -->
+  <div id="error-box" class="hidden max-w-3xl mx-auto mt-6">
+    <div class="rounded-xl border px-4 py-3.5 flex items-start gap-3 t-bad">
+      <svg class="h-5 w-5 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16.5v.01"/></svg>
+      <div class="text-sm">
+        <p class="font-medium">Scan failed</p>
+        <p id="error-msg" class="mt-0.5 opacity-90"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ LOADING ═══════════ -->
+  <div id="loading-box" class="hidden max-w-4xl mx-auto mt-8 space-y-4">
+    <div class="rounded-2xl border t-panel p-6">
+      <div class="flex items-center gap-5">
+        <div class="h-20 w-20 rounded-2xl t-panel-2 animate-pulse shrink-0"></div>
+        <div class="flex-1 space-y-2.5">
+          <div class="h-4 w-40 t-panel-2 rounded animate-pulse"></div>
+          <div class="h-3 w-64 t-panel-2 rounded animate-pulse"></div>
+          <div class="h-3 w-44 t-panel-2 rounded animate-pulse"></div>
+        </div>
+      </div>
+    </div>
+    <div id="loading-steps" class="rounded-2xl border t-panel p-5 space-y-2.5 text-sm">
+      <p class="t-muted flex items-center gap-2"><span class="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--ok-dot)]"></span> connecting &amp; following redirects…</p>
+      <p class="t-muted flex items-center gap-2"><span class="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--ok-dot)]"></span> reading response headers…</p>
+      <p class="t-muted flex items-center gap-2"><span class="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--ok-dot)]"></span> inspecting TLS certificate…</p>
+      <p class="t-muted flex items-center gap-2"><span class="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--ok-dot)]"></span> checking threat feeds…</p>
+    </div>
+    <div class="rounded-2xl border t-panel p-5 space-y-3">
+      <div class="h-3 w-32 t-panel-2 rounded animate-pulse"></div>
+      <div class="h-10 w-full t-panel-2 rounded animate-pulse"></div>
+      <div class="h-10 w-full t-panel-2 rounded animate-pulse"></div>
+      <div class="h-10 w-full t-panel-2 rounded animate-pulse"></div>
+      <div class="h-10 w-full t-panel-2 rounded animate-pulse"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ RESULTS ═══════════ -->
+  <section id="results" class="hidden mt-8 space-y-5">
+
+    <!-- Summary -->
+    <div class="rounded-2xl border t-panel p-5 sm:p-6">
+      <div class="flex flex-col lg:flex-row lg:items-center gap-6">
+        <div class="flex items-center gap-4 lg:border-r t-border lg:pr-6">
+          <div id="grade-badge" class="h-20 w-20 rounded-2xl grid place-items-center shrink-0 t-ok">
+            <span id="grade-text" class="text-3xl font-bold tracking-tight">A</span>
+          </div>
+          <div>
+            <div class="flex items-baseline gap-1.5">
+              <span id="score-text" class="text-2xl font-bold tabular-nums">0</span>
+              <span class="text-sm t-faint font-medium">/ 100</span>
+            </div>
+            <p class="text-xs t-muted font-medium mt-0.5">Security score</p>
+            <p id="scan-time" class="text-[11px] t-faint mt-0.5"></p>
+          </div>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <p class="text-[10px] font-semibold t-faint uppercase tracking-wider">Scanned</p>
+          <a id="result-url" href="#" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-1.5 font-medium t-text hover:underline truncate mt-0.5 max-w-full">
+            <span id="result-url-text" class="truncate"></span>
+            <svg class="h-3.5 w-3.5 shrink-0 t-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          </a>
+          <div id="redirect-note" class="hidden text-xs rounded-md px-2.5 py-1.5 mt-2.5 inline-flex items-center gap-1.5 t-warn">
+            <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h13a4 4 0 0 1 0 8H8M3 12l4-4M3 12l4 4"/></svg>
+            <span id="redirect-text"></span>
+          </div>
+
+          <div class="flex flex-wrap gap-2 mt-3">
+            <span id="pill-passed"></span>
+            <span id="pill-failed"></span>
+            <span id="pill-tls"></span>
+            <span id="pill-cookies"></span>
+            <span id="pill-threat"></span>
+          </div>
+        </div>
+
+        <div class="flex gap-2 shrink-0">
+          <button type="button" id="export-btn" class="h-9 px-3 rounded-lg border t-border t-panel-2 text-xs font-medium t-soft hover:t-text transition inline-flex items-center gap-1.5">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Export
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score bar -->
+    <div class="rounded-2xl border t-panel p-5">
+      <div class="flex items-center justify-between text-xs t-muted mb-2">
+        <span class="font-medium t-soft">Weighted score breakdown</span>
+        <span id="score-summary"></span>
+      </div>
+      <div class="h-2.5 rounded-full t-panel-2 overflow-hidden">
+        <div id="score-bar" class="h-full rounded-full transition-all duration-700" style="width:0%"></div>
+      </div>
+      <div id="score-legend" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4"></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="rounded-2xl border t-panel overflow-hidden">
+      <div class="flex items-center gap-1 px-3 sm:px-4 py-2.5 border-b t-border overflow-x-auto" role="tablist">
+        <button type="button" role="tab" id="tab-headers" aria-controls="panel-headers" aria-selected="true" tabindex="0" data-tab="headers" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap">Headers</button>
+        <button type="button" role="tab" id="tab-tls" aria-controls="panel-tls" aria-selected="false" tabindex="-1" data-tab="tls" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap">TLS</button>
+        <button type="button" role="tab" id="tab-cookies" aria-controls="panel-cookies" aria-selected="false" tabindex="-1" data-tab="cookies" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap">Cookies</button>
+        <button type="button" role="tab" id="tab-chain" aria-controls="panel-chain" aria-selected="false" tabindex="-1" data-tab="chain" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap">Redirects</button>
+        <button type="button" role="tab" id="tab-threat" aria-controls="panel-threat" aria-selected="false" tabindex="-1" data-tab="threat" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap">Reputation</button>
+        <button type="button" role="tab" id="tab-raw" aria-controls="panel-raw" aria-selected="false" tabindex="-1" data-tab="raw" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap">Raw</button>
+        <div class="ml-auto flex items-center gap-2">
+          <button type="button" id="copy-report" class="text-xs t-muted hover:t-text font-medium px-2.5 py-1.5 rounded-lg hover:bg-[var(--panel-2)] transition inline-flex items-center gap-1.5">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy report
+          </button>
+        </div>
+      </div>
+
+      <div class="p-4 sm:p-5">
+        <!-- Headers tab -->
+        <div data-panel="headers" role="tabpanel" id="panel-headers" aria-labelledby="tab-headers" tabindex="0">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <p id="headers-summary" class="text-sm t-muted"></p>
+            <div class="flex items-center gap-2">
+              <label class="text-xs t-muted inline-flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="only-failed" class="accent-[var(--text)]" />
+                Only failures
+              </label>
+              <button type="button" id="expand-all" class="text-xs t-muted hover:t-text font-medium px-2 py-1 rounded-lg hover:bg-[var(--panel-2)] transition">Expand all</button>
+            </div>
+          </div>
+          <div id="rows-container" class="rounded-xl border t-border divide-y t-divide overflow-hidden"></div>
+        </div>
+
+        <!-- TLS tab -->
+        <div data-panel="tls" role="tabpanel" id="panel-tls" aria-labelledby="tab-tls" tabindex="0" class="hidden"></div>
+        <!-- Cookies tab -->
+        <div data-panel="cookies" role="tabpanel" id="panel-cookies" aria-labelledby="tab-cookies" tabindex="0" class="hidden"></div>
+        <!-- Chain tab -->
+        <div data-panel="chain" role="tabpanel" id="panel-chain" aria-labelledby="tab-chain" tabindex="0" class="hidden"></div>
+        <!-- Threat tab -->
+        <div data-panel="threat" role="tabpanel" id="panel-threat" aria-labelledby="tab-threat" tabindex="0" class="hidden"></div>
+        <!-- Raw tab -->
+        <div data-panel="raw" role="tabpanel" id="panel-raw" aria-labelledby="tab-raw" tabindex="0" class="hidden"></div>
+      </div>
+    </div>
+
+    <!-- Apply all fixes -->
+    <div id="all-fixes" class="hidden rounded-2xl border t-panel overflow-hidden">
+      <div class="px-5 py-4 border-b t-border flex flex-wrap items-center justify-between gap-3">
+        <h2 class="font-medium text-[15px] t-text">Apply all fixes</h2>
+        <div class="flex gap-2">
+          <button type="button" data-copy="nginx" class="text-xs font-medium px-3 py-1.5 rounded-lg border t-border hover:bg-[var(--panel-2)] transition">Copy Nginx</button>
+          <button type="button" data-copy="cloudflare" class="text-xs font-medium px-3 py-1.5 rounded-lg border t-border hover:bg-[var(--panel-2)] transition">Copy Cloudflare</button>
+        </div>
+      </div>
+      <div id="fixes-body" class="p-4 sm:p-5 space-y-4"></div>
+    </div>
+
+    <p class="text-xs t-faint max-w-3xl mx-auto text-center leading-relaxed">
+      Header and CSP analysis uses heuristic checks — it does not model nonce entropy, effective policy
+      across multiple policies, or browser-specific behaviour. Reputation data comes from the URLhaus and
+      OpenPhish public feeds; a clean result means "not on these lists", not "safe".
+    </p>
+  </section>
+
+  <!-- ═══════════ EXPLAINER ═══════════ -->
+  <section class="mt-16 pt-10 border-t t-border">
+    <div class="max-w-3xl mx-auto">
+      <h2 class="text-sm font-semibold t-faint uppercase tracking-wider">What we check</h2>
+      <div class="mt-5 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+        <div><p class="font-medium t-text">Content-Security-Policy</p><p class="t-muted mt-0.5">Restricts script, style and frame sources. The strongest single XSS mitigation.</p></div>
+        <div><p class="font-medium t-text">Strict-Transport-Security</p><p class="t-muted mt-0.5">Forces HTTPS and blocks SSL-stripping proxies on repeat visits.</p></div>
+        <div><p class="font-medium t-text">X-Frame-Options</p><p class="t-muted mt-0.5">Stops your site being framed for clickjacking.</p></div>
+        <div><p class="font-medium t-text">X-Content-Type-Options</p><p class="t-muted mt-0.5">Blocks browsers MIME-sniffing uploads into executable scripts.</p></div>
+        <div><p class="font-medium t-text">Referrer-Policy</p><p class="t-muted mt-0.5">Controls what path data leaks to sites you link to.</p></div>
+        <div><p class="font-medium t-text">Permissions-Policy</p><p class="t-muted mt-0.5">Turns off camera, mic and geolocation unless explicitly re-enabled.</p></div>
+        <div><p class="font-medium t-text">Cross-Origin-Opener-Policy</p><p class="t-muted mt-0.5">Isolates your browsing context against tabnabbing.</p></div>
+        <div><p class="font-medium t-text">Cross-Origin-Resource-Policy</p><p class="t-muted mt-0.5">Prevents other origins loading your assets in bulk.</p></div>
+        <div><p class="font-medium t-text">Cookie flags</p><p class="t-muted mt-0.5">Verifies Secure, HttpOnly and SameSite on every cookie.</p></div>
+        <div><p class="font-medium t-text">TLS certificate</p><p class="t-muted mt-0.5">Real inspection: issuer, validity window, protocol and cipher.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="relative z-10 border-t t-border mt-8">
+  <div class="mx-auto max-w-6xl px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs t-faint">
+    <p>Header Auditor — open source security header scanner.</p>
+    <p>No scan data is stored on the server.</p>
+  </div>
+</footer>
+
+<!-- History drawer -->
+<div id="history-panel" class="fixed inset-0 z-[70] hidden">
+  <div id="history-backdrop" class="absolute inset-0 bg-black/50"></div>
+  <div class="absolute right-0 top-0 h-full w-full sm:w-96 t-panel border-l t-border flex flex-col">
+    <div class="flex items-center justify-between px-5 py-4 border-b t-border">
+      <h2 class="font-medium t-text">Scan history</h2>
+      <div class="flex items-center gap-2">
+        <button type="button" id="clear-history" class="text-xs t-muted hover:t-text px-2 py-1 rounded hover:bg-[var(--panel-2)] transition">Clear</button>
+        <button type="button" id="close-history" class="h-7 w-7 grid place-items-center rounded-lg t-panel-2 t-muted hover:t-text transition" aria-label="Close">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="history-list" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[80] pointer-events-none">
+  <div class="rounded-lg t-accent text-sm font-medium px-4 py-2.5 shadow-lg transition-all duration-200 opacity-0 translate-y-2"></div>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+const form = $('#scan-form'), input = $('#url-input'), btn = $('#scan-btn');
+const btnLabel = $('#btn-label'), spinner = $('#btn-spinner');
+const loadingBox = $('#loading-box'), errorBox = $('#error-box'), errorMsg = $('#error-msg');
+const results = $('#results');
+
+let busy = false;
+let current = null;
+
+/* ═══════════ THEME ═══════════ */
+const THEMES = ['light', 'dark', 'hacker'];
+const THEME_KEY = 'ha-theme';
+
+function applyTheme(name) {
+  if (!THEMES.includes(name)) name = 'light';
+  document.documentElement.setAttribute('data-theme', name);
+  try { localStorage.setItem(THEME_KEY, name); } catch {}
+  $$('.theme-btn').forEach(b => {
+    const on = b.dataset.themeSet === name;
+    b.style.background = on ? 'var(--accent)' : 'transparent';
+    b.style.color = on ? 'var(--accent-text)' : 'var(--text-muted)';
+  });
+}
+
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch {}
+  if (!saved) {
+    saved = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  applyTheme(saved);
+}
+
+$$('.theme-btn').forEach(b => b.addEventListener('click', () => applyTheme(b.dataset.themeSet)));
+
+// Cycle themes with Shift+T
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'T' && e.shiftKey && !e.metaKey && !e.ctrlKey) {
+    const cur = document.documentElement.getAttribute('data-theme');
+    applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
+  }
+});
+
+/* ═══════════ TOAST ═══════════ */
+const toast = $('#toast'), toastInner = toast.firstElementChild;
+let toastTimer;
+function showToast(msg) {
+  toastInner.textContent = msg;
+  toastInner.classList.remove('opacity-0', 'translate-y-2');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastInner.classList.add('opacity-0', 'translate-y-2'), 1700);
+}
+
+async function copyText(text, label = 'Copied to clipboard') {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch { showToast('Copy failed'); return; }
+    document.body.removeChild(ta);
+  }
+  showToast(label);
+}
+
+function download(filename, text, type = 'application/json') {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ═══════════ HELPERS ═══════════ */
+const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+// Strip Markdown control characters from untrusted values used in reports.
+const md = (s) => String(s ?? '').replace(/[`*_[\]{}()#|\\]/g, '').slice(0, 120);
+
+const gradeClass = (g) => ({
+  'A+':'t-ok','A':'t-ok','B':'t-ok','C':'t-warn','D':'t-warn','F':'t-bad'
+}[g] || 't-bad');
+
+const SEV = {
+  critical:'t-bad', high:'t-warn', medium:'t-info', low:'t-panel-2'
+};
+
+function normalizeUrl(raw) {
+  let v = String(raw).trim();
+  if (!v) return null;
+  if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+  try {
+    const u = new URL(v);
+    if (!['http:','https:'].includes(u.protocol)) return null;
+    return u;
+  } catch { return null; }
+}
+
+function setBusy(state) {
+  busy = state;
+  btn.disabled = state;
+  input.disabled = state;
+  btnLabel.textContent = state ? 'Scanning' : 'Scan';
+  spinner.classList.toggle('hidden', !state);
+  loadingBox.classList.toggle('hidden', !state);
+}
+
+function showError(msg) {
+  errorMsg.textContent = msg;
+  errorBox.classList.remove('hidden');
+  results.classList.add('hidden');
+  loadingBox.classList.add('hidden');
+  input.focus(); input.select();
+}
+
+/* ═══════════ FEED STATUS ═══════════ */
+async function loadFeedStatus() {
+  try {
+    const r = await fetch('/api/feeds');
+    const d = await r.json();
+    const parts = Object.values(d).filter(f => f.entries).map(f => `${f.name.split(' ')[0]}: ${f.entries.toLocaleString()}`);
+    $('#feed-status').textContent = parts.length ? parts.join(' · ') + ' indexed' : 'threat feeds unavailable';
+  } catch { $('#feed-status').textContent = 'threat feeds unavailable'; }
+}
+loadFeedStatus();
+
+/* ═══════════ SCAN ═══════════ */
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (busy) return;
+  errorBox.classList.add('hidden');
+  results.classList.add('hidden');
+
+  const raw = input.value;
+  if (!raw.trim()) return showError('Enter a URL to scan.');
+  const parsed = normalizeUrl(raw);
+  if (!parsed) return showError('That does not look like a valid URL. Try something like example.com');
+
+  setBusy(true);
+  try {
+    const res = await fetch('/api/scan?url=' + encodeURIComponent(parsed.toString()), { headers: { Accept: 'application/json' } });
+    const data = await res.json();
+    if (!res.ok) return showError(data.error || `Request failed (${res.status})`);
+    current = data;
+    render(data);
+    saveHistory(data);
+  } catch {
+    showError('Could not reach the server. Check your connection and try again.');
+  } finally { setBusy(false); }
+});
+
+/* ═══════════ RENDER ═══════════ */
+function render(d) {
+  current = d;
+
+  $('#grade-text').textContent = d.grade;
+  $('#grade-badge').className = 'h-20 w-20 rounded-2xl grid place-items-center shrink-0 ' + gradeClass(d.grade);
+  $('#score-text').textContent = d.score;
+  $('#scan-time').textContent = `${d.durationMs} ms · ${new Date(d.scannedAt).toLocaleTimeString()}`;
+
+  $('#result-url-text').textContent = d.finalUrl;
+  $('#result-url').href = d.finalUrl;
+
+  if (d.redirects > 0) {
+    $('#redirect-text').innerHTML = `${d.redirects} redirect${d.redirects > 1 ? 's' : ''} followed`;
+    $('#redirect-note').classList.remove('hidden');
+  } else $('#redirect-note').classList.add('hidden');
+
+  const passed = d.headers.filter(h => h.passed).length;
+  const total = d.headers.length;
+  pill('#pill-passed', `${passed} passed`, 't-ok');
+  pill('#pill-failed', `${total - passed} failed`, (total - passed) ? 't-bad' : 't-ok');
+  pill('#pill-tls', d.tls.passed ? '✓ TLS valid' : '⚠ TLS issue', d.tls.passed ? 't-ok' : 't-bad');
+  pill('#pill-cookies',
+    d.cookieSummary.total ? `${d.cookieSummary.insecure ? d.cookieSummary.insecure + ' weak' : 'cookies ok'}` : 'no cookies',
+    d.cookieSummary.insecure ? 't-bad' : 't-ok');
+
+  const flagged = (d.threatIntel || []).filter(t => t.data && t.data.listed);
+  pill('#pill-threat',
+    flagged.length ? `⚠ ${flagged.length} flagged` : '✓ not listed',
+    flagged.length ? 't-bad' : 't-ok');
+
+  renderScore(d);
+  renderHeaders(d);
+  renderTls(d);
+  renderCookies(d);
+  renderChain(d);
+  renderThreat(d);
+  renderRaw(d);
+  renderFixes(d);
+
+  errorBox.classList.add('hidden');
+  loadingBox.classList.add('hidden');
+  results.classList.remove('hidden');
+  selectTab('headers');
+  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function pill(sel, text, cls) {
+  const el = $(sel);
+  el.className = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border ' + cls;
+  el.textContent = text;
+}
+
+function renderScore(d) {
+  const bar = $('#score-bar');
+  bar.style.width = d.score + '%';
+  bar.style.background = d.score >= 90 ? 'var(--ok-dot)' : d.score >= 70 ? 'var(--warn-dot)' : 'var(--bad-dot)';
+
+  // n/a checks carry no weight in the score, so they are excluded here too.
+  const applicable = d.headers.filter(h => !h.notApplicable);
+  const earned = applicable.filter(h => h.passed).length;
+  const naCount = d.headers.length - applicable.length;
+  $('#score-summary').textContent =
+    `${earned}/${applicable.length} header checks passed` + (naCount ? ` (${naCount} n/a)` : '');
+
+  const groups = { critical: [], high: [], medium: [], low: [] };
+  d.headers.forEach(h => groups[h.severity]?.push(h));
+  $('#score-legend').innerHTML = Object.entries(groups)
+    .filter(([, arr]) => arr.length)
+    .map(([sev, arr]) => {
+      const applicable = arr.filter(h => !h.notApplicable);
+      const ok = applicable.filter(h => h.passed).length;
+      // n/a checks are dropped from scoring, so show "3/4 · 1 n/a" rather than
+      // making them look like failures.
+      const na = arr.length - applicable.length;
+      return `<div class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg t-panel-2 border t-border">
+        <span class="text-xs font-medium capitalize t-muted">${sev}</span>
+        <span class="text-xs font-semibold t-text">${ok}/${applicable.length}${na ? ` <span class="t-faint font-normal">· ${na} n/a</span>` : ''}</span>
+      </div>`;
+    }).join('');
+}
+
+/* ── Headers ── */
+function renderHeaders(d) {
+  const container = $('#rows-container');
+  container.innerHTML = '';
+
+  // Fresh rows render collapsed, so the toggle label must reset too — otherwise
+  // it still reads "Collapse all" from the previous scan.
+  $('#expand-all').textContent = 'Expand all';
+  $('#expand-all').dataset.state = 'collapsed';
+
+  const failed = d.headers.filter(h => !h.passed && !h.notApplicable).length;
+  $('#headers-summary').innerHTML = failed
+    ? `<span class="font-medium t-text">${failed} issue${failed > 1 ? 's' : ''}</span> across ${d.headers.length} checks`
+    : `All ${d.headers.length} checks passed`;
+
+  d.headers.forEach(h => container.appendChild(buildRow(h)));
+  applyFilter();
+}
+
+function buildRow(h) {
+  const row = document.createElement('div');
+  row.className = 'check-row';
+  row.dataset.passed = h.passed ? '1' : '0';
+
+  const head = document.createElement('button');
+  head.type = 'button';
+  head.className = 'w-full text-left px-4 sm:px-5 py-3.5 hover:bg-[var(--panel-2)] transition flex items-center gap-3';
+
+  const na = h.notApplicable;
+  const iconCls = h.passed ? 't-ok' : (na ? 't-panel-2' : 't-bad');
+  const icon = h.passed
+    ? '<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>'
+    : na ? '<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>'
+    : '<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+
+  head.innerHTML = `
+    <span class="h-5 w-5 rounded-full grid place-items-center shrink-0 border ${iconCls}">${icon}</span>
+    <span class="flex-1 min-w-0">
+      <span class="flex items-center gap-2 flex-wrap">
+        <span class="text-sm font-medium t-text">${esc(h.name)}</span>
+        <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide border ${SEV[h.severity] || 't-panel-2'}">${esc(h.severity)}</span>
+        ${h.notApplicable ? '<span class="text-[10px] font-medium px-1.5 py-0.5 rounded border t-border t-faint">n/a</span>' : ''}
+      </span>
+      <span class="block text-xs t-muted mt-0.5">${esc(h.reason)}</span>
+    </span>
+    <span class="hidden lg:block max-w-52 text-xs t-faint truncate font-mono">${h.value ? esc(h.value) : '—'}</span>
+    <span class="hidden sm:block text-xs t-faint tabular-nums w-9 text-right shrink-0">${h.weight}pt</span>
+    <svg class="chevron h-4 w-4 t-faint transition-transform shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>`;
+
+  const detail = document.createElement('div');
+  detail.className = 'detail hidden px-4 sm:px-5 pb-5 pt-1 bg-[var(--panel-2)]';
+
+  const frag = document.createDocumentFragment();
+
+  frag.appendChild(box('Why it matters', `<p class="text-xs t-muted leading-relaxed">${esc(h.why)}</p>`));
+
+  frag.appendChild(box('Current value',
+    h.value
+      ? `<code class="text-xs t-soft break-all">${esc(h.value)}</code>`
+      : `<span class="text-xs t-faint italic">Header not present in the response</span>`));
+
+  if (h.detail) frag.appendChild(box('Parsed', `<code class="text-xs t-soft break-all">${esc(h.detail)}</code>`));
+
+  if (!h.passed && !h.notApplicable && h.nginxFix) {
+    const grid = document.createElement('div');
+    grid.className = 'grid gap-3 sm:grid-cols-2 mt-3';
+    grid.appendChild(snippet('Nginx', h.nginxFix));
+    grid.appendChild(snippet('Cloudflare', h.cloudflareFix));
+    frag.appendChild(grid);
+  }
+
+  detail.appendChild(frag);
+  row.appendChild(head);
+  row.appendChild(detail);
+
+  head.addEventListener('click', () => {
+    detail.classList.toggle('hidden');
+    $('.chevron', head).classList.toggle('rotate-180');
+  });
+
+  if (!h.passed && !h.notApplicable) {
+    detail.classList.remove('hidden');
+    $('.chevron', head).classList.add('rotate-180');
+  }
+  return row;
+}
+
+function box(label, html) {
+  const d = document.createElement('div');
+  d.className = 'rounded-lg border t-border bg-[var(--panel)] p-3.5 mt-3 first:mt-0';
+  d.innerHTML = `<p class="text-[10px] font-semibold uppercase tracking-wider t-faint mb-1.5">${label}</p>${html}`;
+  return d;
+}
+
+function snippet(label, code) {
+  const card = document.createElement('div');
+  card.className = 'rounded-lg border t-border bg-[var(--panel)] overflow-hidden';
+  const bar = document.createElement('div');
+  bar.className = 'flex items-center justify-between px-3 py-2 border-b t-border bg-[var(--panel-2)]';
+  bar.innerHTML = `<span class="text-[10px] font-semibold uppercase tracking-wider t-muted">${label}</span>`;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'text-[11px] font-medium t-muted hover:t-text px-2 py-1 rounded hover:bg-[var(--panel)] transition';
+  b.textContent = 'Copy';
+  b.onclick = (e) => { e.stopPropagation(); copyText(code); };
+  bar.appendChild(b);
+  const pre = document.createElement('pre');
+  pre.className = 'p-3 overflow-x-auto text-[11px] leading-relaxed t-soft';
+  pre.textContent = code;
+  card.append(bar, pre);
+  return card;
+}
+
+/* Filter */
+$('#only-failed').addEventListener('change', applyFilter);
+function applyFilter() {
+  const only = $('#only-failed').checked;
+  $$('.check-row').forEach(r => {
+    r.hidden = only && r.dataset.passed === '1';
+  });
+}
+
+$('#expand-all').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  const rows = $$('.check-row').filter(r => !r.hidden);
+  const anyClosed = rows.some(r => $('.detail', r).classList.contains('hidden'));
+  rows.forEach(r => {
+    $('.detail', r).classList.toggle('hidden', !anyClosed);
+    $('.chevron', r).classList.toggle('rotate-180', anyClosed);
+  });
+  btn.textContent = anyClosed ? 'Collapse all' : 'Expand all';
+  btn.dataset.state = anyClosed ? 'expanded' : 'collapsed';
+});
+
+/* ── TLS ── */
+function renderTls(d) {
+  const t = d.tls;
+  const panel = $('[data-panel="tls"]');
+  const cert = t.certificate || {};
+
+  const rows = [
+    ['Status', t.passed ? 'Valid' : 'Problem detected', t.passed ? 't-ok' : 't-bad'],
+    ['Details', t.reason, 't-panel-2'],
+    ['Protocol', t.protocol || '—', t.weakProtocol ? 't-bad' : 't-panel-2'],
+    ['Cipher', t.cipher ? `${t.cipher}${t.cipherSuite && t.cipherSuite !== t.cipher ? ' · ' + t.cipherSuite : ''}` : '—', 't-panel-2'],
+    ['Certificate issuer', cert.issuer || '—', 't-panel-2'],
+    ['Subject', cert.subject || '—', 't-panel-2'],
+    ['Valid from', cert.validFrom || '—', 't-panel-2'],
+    ['Valid to', cert.validTo || '—', t.expiry?.status === 'expired' ? 't-bad' : t.expiry?.status?.startsWith('expiring') ? 't-warn' : 't-panel-2'],
+    ['Days remaining', t.expiry?.daysRemaining ?? '—', (t.expiry?.daysRemaining ?? 99) < 0 ? 't-bad' : (t.expiry?.daysRemaining ?? 99) <= 30 ? 't-warn' : 't-ok'],
+    ['Chain trusted', t.authorized === null ? '—' : t.authorized ? 'Yes' : 'No', t.authorized ? 't-ok' : 't-bad'],
+    ['SANs', cert.altNames ? String(cert.altNames).slice(0, 160) : '—', 't-panel-2'],
+    ['SHA-256 fingerprint', cert.fingerprint256 || '—', 't-panel-2']
+  ];
+
+  // Built with DOM APIs rather than innerHTML: these values come straight from
+  // the certificate and could contain characters that break out of attributes.
+  for (const [k, v, cls] of rows) {
+    const row = document.createElement('div');
+    row.className = 'grid sm:grid-cols-[11rem_1fr] gap-2 py-2.5 border-b t-divide last:border-0 items-start';
+    const key = document.createElement('span');
+    key.className = 'text-xs t-muted';
+    key.textContent = k;
+    const val = document.createElement('span');
+    val.className = 'text-xs rounded px-2 py-1 inline-block break-all ' + cls;
+    val.textContent = String(v);
+    row.append(key, val);
+    panel.appendChild(row);
+  }
+
+  if (t.authorizationError) {
+    // Built with DOM APIs rather than innerHTML: the value originates from the
+    // remote host's certificate, so it is never treated as markup.
+    const box = document.createElement('div');
+    box.className = 'mt-4 rounded-lg border p-3.5 t-bad text-xs';
+    box.textContent = String(t.authorizationError);
+    panel.appendChild(box);
+  }
+}
+
+/* ── Cookies ── */
+function renderCookies(d) {
+  const panel = $('[data-panel="cookies"]');
+  if (!d.cookies.length) {
+    panel.innerHTML = `<p class="text-sm t-muted">No cookies are set by this response — nothing to flag.</p>`;
+    return;
+  }
+  // Cookie names come straight from the target server, so build with DOM APIs.
+  for (const c of d.cookies) {
+    const card = document.createElement('div');
+    card.className = 'rounded-lg border t-border p-4 mb-3 last:mb-0';
+
+    const head = document.createElement('div');
+    head.className = 'flex items-center justify-between gap-3 mb-2.5';
+    const name = document.createElement('code');
+    name.className = 'text-sm font-semibold t-text';
+    name.textContent = c.name;
+    const badge = document.createElement('span');
+    badge.className = 'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase border ' + (c.passed ? 't-ok' : 't-bad');
+    badge.textContent = c.passed ? 'secure' : 'weak';
+    head.append(name, badge);
+
+    const flags = document.createElement('div');
+    flags.className = 'flex flex-wrap gap-1.5 mb-2';
+    const sameSiteGood = c.sameSite && c.sameSite !== 'none' && c.sameSite !== 'lax';
+    flags.append(
+      chip('Secure', c.secure === true),
+      chip('HttpOnly', c.httpOnly === true),
+      chip('SameSite', c.sameSite ? sameSiteGood : false)
+    );
+    if (c.session) flags.appendChild(chip('session cookie', true, 't-muted t-border'));
+
+    card.append(head, flags);
+
+    if (c.issues.length) {
+      const ul = document.createElement('ul');
+      ul.className = 'space-y-1 mt-2';
+      for (const issue of c.issues) {
+        const li = document.createElement('li');
+        li.className = 'text-xs ' + (issue.severity === 'high' ? 't-bad' : 't-warn');
+        li.textContent = '• ' + issue.text;
+        ul.appendChild(li);
+      }
+      card.appendChild(ul);
+    }
+    panel.appendChild(card);
+  }
+
+  function chip(label, good, neutralCls) {
+    const s = document.createElement('span');
+    s.className = 'rounded px-1.5 py-0.5 text-[10px] font-medium border ' + (neutralCls || (good ? 't-ok' : 't-bad'));
+    s.textContent = label;
+    return s;
+  }
+}
+
+/* ── Redirect chain ── */
+function renderChain(d) {
+  const panel = $('[data-panel="chain"]');
+  if (!d.redirectChain || d.redirectChain.length <= 1) {
+    panel.innerHTML = `<p class="text-sm t-muted">No redirects — the requested URL responded directly.</p>`;
+    return;
+  }
+  // URLs are attacker-influenced, so textContent only.
+  d.redirectChain.forEach((h, i) => {
+    const last = i === d.redirectChain.length - 1;
+    const isRedirect = h.status >= 300 && h.status < 400;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'flex gap-3';
+
+    const rail = document.createElement('div');
+    rail.className = 'flex flex-col items-center shrink-0';
+    const dot = document.createElement('span');
+    dot.className = 'h-7 w-7 rounded-full grid place-items-center text-[10px] font-bold border ' + (isRedirect ? 't-info' : 't-ok');
+    dot.textContent = h.status;
+    rail.appendChild(dot);
+    if (!last) {
+      const line = document.createElement('span');
+      line.className = 'flex-1 w-px t-border my-1';
+      rail.appendChild(line);
+    }
+
+    const body = document.createElement('div');
+    body.className = 'pb-5 min-w-0 flex-1';
+    const url = document.createElement('code');
+    url.className = 'text-xs t-text break-all';
+    url.textContent = h.url;
+    const next = document.createElement('p');
+    next.className = 'text-[11px] break-all ' + (h.location ? 't-muted' : 't-ok');
+    next.textContent = h.location ? '→ ' + h.location : 'final response';
+    body.append(url, next);
+
+    wrap.append(rail, body);
+    panel.appendChild(wrap);
+  });
+
+  if (d.tooManyHops) {
+    panel.insertAdjacentHTML('beforeend',
+      `<p class="text-xs t-warn border rounded-lg p-3">Redirect chain exceeded ${d.redirectChain.length} hops and may be looping.</p>`);
+  }
+}
+
+/* ── Threat ── */
+function renderThreat(d) {
+  const panel = $('[data-panel="threat"]');
+  const list = d.threatIntel || [];
+  if (!list.length) {
+    panel.innerHTML = `<p class="text-sm t-muted">No reputation data available.</p>`;
+    return;
+  }
+  for (const item of list) {
+    const card = document.createElement('div');
+    card.className = 'rounded-lg border t-border p-4 mb-3 last:mb-0';
+
+    const head = document.createElement('div');
+    head.className = 'flex items-center justify-between gap-3';
+    const src = document.createElement('span');
+    src.className = 'text-sm font-medium t-text';
+    src.textContent = item.source;
+    head.appendChild(src);
+
+    const dt = item.data || {};
+    let badgeCls, label;
+
+    if (item.status === 'unavailable') {
+      badgeCls = 't-faint t-border';
+      label = 'feed unavailable';
+    } else if (dt.listed && dt.severity === 'confirmed') {
+      badgeCls = 't-bad';
+      label = 'listed';
+    } else if (dt.listed && dt.severity === 'advisory') {
+      badgeCls = 't-warn';
+      label = 'host listed';
+    } else {
+      badgeCls = 't-ok';
+      label = 'not listed';
+    }
+
+    const badge = document.createElement('span');
+    badge.className = 'rounded-full px-2 py-0.5 text-xs font-medium border ' + badgeCls;
+    badge.textContent = label;
+    head.appendChild(badge);
+    card.appendChild(head);
+
+    const notes = [];
+    if (item.status === 'unavailable') {
+      notes.push(['Could not fetch this feed. Verification was skipped.', 'text-xs t-muted mt-1.5']);
+    } else if (dt.listed && dt.severity === 'confirmed') {
+      notes.push(['This exact URL is on the feed as malicious.', 'text-xs t-bad mt-2 font-medium']);
+    } else if (dt.listed && dt.severity === 'advisory') {
+      notes.push(['Other paths on this host have been reported as malicious.', 'text-xs t-warn mt-2']);
+    } else if (dt.sharedHost) {
+      notes.push(['Shared hosting platform — host-level results suppressed as they do not reflect this URL.', 'text-xs t-faint mt-2']);
+    }
+    if (dt.entryCount) {
+      notes.push([`${dt.entryCount.toLocaleString()} entries indexed`, 'text-xs t-faint mt-1']);
+    }
+
+    for (const [text, cls] of notes) {
+      const p = document.createElement('p');
+      p.className = cls;
+      p.textContent = text;
+      card.appendChild(p);
+    }
+    panel.appendChild(card);
+  }
+}
+
+/* ── Raw headers ── */
+function renderRaw(d) {
+  const panel = $('[data-panel="raw"]');
+  const entries = Object.entries(d.rawHeaders || {});
+  const table = document.createElement('div');
+  table.className = 'rounded-lg border t-border overflow-hidden';
+  for (const [k, v] of entries) {
+    const row = document.createElement('div');
+    row.className = 'px-3.5 py-2 border-b t-divide last:border-0 grid sm:grid-cols-[14rem_1fr] gap-2';
+    const key = document.createElement('code');
+    key.className = 'text-[11px] t-muted break-all';
+    key.textContent = k;
+    const val = document.createElement('code');
+    val.className = 'text-[11px] t-text break-all';
+    val.textContent = v;
+    row.append(key, val);
+    table.appendChild(row);
+  }
+
+  panel.innerHTML = `
+    <div class="flex justify-between items-center mb-3">
+      <p class="text-xs t-muted">${entries.length} response headers from the final hop.</p>
+      <button type="button" id="copy-raw" class="text-xs t-muted hover:t-text font-medium px-2 py-1 rounded hover:bg-[var(--panel-2)] transition">Copy all</button>
+    </div>`;
+  panel.appendChild(table);
+  $('#copy-raw').onclick = () => copyText(
+    entries.map(([k, v]) => `${k}: ${v}`).join('\n'), 'Headers copied'
+  );
+}
+
+/* ── Fixes ── */
+function renderFixes(d) {
+  const failed = d.headers.filter(h => !h.passed && !h.notApplicable && h.nginxFix);
+  const wrap = $('#all-fixes');
+  if (!failed.length) { wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+
+  const nginx = ['# Security headers — place inside your server {} block', '']
+    .concat(failed.map(h => '# ' + h.name)).join('\n') + '\n'
+    + failed.map(h => h.nginxFix).join('\n');
+
+  const cf = ['# Cloudflare — Zone → Rules → Transform Rules → Modify Response Header', '']
+    .concat(failed.map(h => h.cloudflareFix.replace(/Transform Rule → Set Static Header/g, 'Modify Response Header'))).join('\n\n');
+
+  const body = $('#fixes-body');
+  body.innerHTML = '';
+  body.appendChild(panelCode('Nginx — server block', nginx));
+  body.appendChild(panelCode('Cloudflare — Transform Rules', cf));
+
+  $$('[data-copy]', wrap).forEach(b => {
+    b.onclick = () => copyText(b.dataset.copy === 'nginx' ? nginx : cf, 'Fix block copied');
+  });
+}
+
+function panelCode(label, code) {
+  const card = document.createElement('div');
+  card.className = 'rounded-lg border t-border overflow-hidden';
+  card.innerHTML = `
+    <div class="px-3 py-2 border-b t-border bg-[var(--panel-2)] text-[10px] font-semibold uppercase tracking-wider t-muted">${label}</div>
+    <pre class="p-3.5 overflow-x-auto text-[11px] leading-relaxed t-soft">${esc(code)}</pre>`;
+  return card;
+}
+
+/* ═══════════ TABS ═══════════ */
+$$('.tab-btn').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
+function selectTab(name) {
+  $$('.tab-btn').forEach(b => {
+    const on = b.dataset.tab === name;
+    b.style.background = on ? 'var(--panel-2)' : 'transparent';
+    b.style.color = on ? 'var(--text)' : 'var(--text-muted)';
+    // Roving tabindex: only the active tab is in the tab order.
+    b.setAttribute('aria-selected', String(on));
+    b.tabIndex = on ? 0 : -1;
+  });
+  $$('[data-panel]').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== name));
+}
+
+// Arrow-key navigation between tabs, per the WAI-ARIA tabs pattern.
+$$('.tab-btn').forEach((b, i, all) => {
+  b.addEventListener('keydown', (e) => {
+    const map = { ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last' };
+    if (!(e.key in map)) return;
+    e.preventDefault();
+    const target = map[e.key] === 'first' ? 0
+      : map[e.key] === 'last' ? all.length - 1
+      : (i + map[e.key] + all.length) % all.length;
+    all[target].focus();
+    selectTab(all[target].dataset.tab);
+  });
+  // Clicking a non-focusable tab should also hand focus to it.
+  b.addEventListener('click', () => b.focus());
+});
+
+/* ═══════════ EXPORT ═══════════ */
+function markdownReport(d) {
+  const L = [];
+  L.push(`# Security Audit — ${md(d.finalUrl)}`, '');
+  L.push(`**Score:** ${d.score}/100 (${d.grade})  `);
+  L.push(`**Scanned:** ${new Date(d.scannedAt).toISOString()}  `);
+  L.push(`**Final URL:** ${md(d.finalUrl)}`, '');
+  if (d.redirects) L.push(`**Redirects:** ${d.redirects}`, '');
+  L.push('## Headers', '');
+  L.push('| Header | Weight | Status | Detail |', '|---|---|---|---|');
+  d.headers.forEach(h => {
+    const st = h.notApplicable ? 'n/a' : h.passed ? 'PASS' : 'FAIL';
+    L.push(`| ${md(h.name)} | ${h.weight} | ${st} | ${md(h.reason)} |`);
+  });
+  if (d.tls.protocol) {
+    L.push('', '## TLS', '', `- Protocol: \`${md(d.tls.protocol)}\``, `- Cipher: \`${md(d.tls.cipher) || '—'}\``,
+      `- Issuer: ${md(d.tls.certificate?.issuer) || '—'}`,
+      `- Expires: ${md(d.tls.certificate?.validTo) || '—'}${d.tls.expiry?.daysRemaining != null ? ` (${d.tls.expiry.daysRemaining} days)` : ''}`);
+  }
+  if (d.cookies.length) {
+    L.push('', '## Cookies', '');
+    // Cookie names are attacker-controlled; neutralise backticks/brackets so the
+    // exported Markdown cannot be broken out of.
+    d.cookies.forEach(c => L.push(
+      `- \`${md(c.name)}\` — Secure: ${c.secure}, HttpOnly: ${c.httpOnly}, SameSite: ${c.sameSite || 'none set'}`));
+  }
+  if (d.securityTxt) {
+    L.push('', '## Security.txt', '',
+      `- Present: ${d.securityTxt.present}${d.securityTxt.contact ? ` — ${md(d.securityTxt.contact)}` : ''}`);
+  }
+  const failed = d.headers.filter(h => !h.passed && !h.notApplicable && h.nginxFix);
+  if (failed.length) {
+    L.push('', '## Recommended fixes (Nginx)', '', '```nginx');
+    failed.forEach(h => L.push(h.nginxFix));
+    L.push('```');
+  }
+  L.push('', '---', '_Generated by HeaderAuditor._');
+  return L.join('\n');
+}
+
+$('#copy-report').onclick = () => {
+  if (current) copyText(markdownReport(current), 'Markdown report copied');
+};
+
+$('#export-btn').onclick = () => {
+  if (!current) return;
+  // Hostname goes into a filename, so keep it to safe characters only.
+  const host = (() => {
+    try { return new URL(current.finalUrl).hostname.replace(/[^a-z0-9.-]/gi, '_').slice(0, 60); }
+    catch { return 'scan'; }
+  })();
+  download(`audit-${host}-${current.scannedAt.slice(0, 10)}.json`, JSON.stringify(current, null, 2));
+  showToast('JSON report downloaded');
+};
+
+/* ═══════════ HISTORY ═══════════ */
+const HIST_KEY = 'ha-history';
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch { return []; }
+}
+function saveHistory(d) {
+  const h = getHistory().filter(e => e.url !== d.finalUrl);
+  h.unshift({ url: d.finalUrl, score: d.score, grade: d.grade, at: d.scannedAt, flagged: (d.threatIntel || []).some(t => t.data && t.data.listed) });
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 25))); } catch {}
+  updateHistoryBadge();
+}
+function updateHistoryBadge() {
+  const n = getHistory().length;
+  const b = $('#history-badge');
+  b.textContent = n;
+  b.classList.toggle('hidden', !n);
+}
+function renderHistory() {
+  const list = $('#history-list');
+  const h = getHistory();
+  list.innerHTML = '';
+  if (!h.length) {
+    list.innerHTML = `<p class="text-sm t-muted p-4 text-center">No scans yet.</p>`;
+    return;
+  }
+  // Built via DOM: localStorage is user-writable, so a hand-edited entry must
+  // not be able to inject markup.
+  h.forEach((e, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'history-item w-full text-left rounded-lg border t-border p-3 hover:bg-[var(--panel-2)] transition';
+
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between gap-2';
+    const url = document.createElement('code');
+    url.className = 'text-xs t-text truncate flex-1';
+    url.textContent = e.url;
+    const score = document.createElement('span');
+    score.className = 'rounded px-1.5 py-0.5 text-[10px] font-bold border shrink-0 ' +
+      (e.score >= 90 ? 't-ok' : e.score >= 70 ? 't-warn' : 't-bad');
+    score.textContent = `${e.grade} ${e.score}`;
+    row.append(url, score);
+
+    const meta = document.createElement('p');
+    meta.className = 'text-[11px] t-faint mt-1';
+    meta.textContent = new Date(e.at).toLocaleString() + (e.flagged ? ' · ⚠ listed' : '');
+
+    btn.append(row, meta);
+    btn.onclick = () => {
+      input.value = e.url;
+      closeHistory();
+      form.requestSubmit();
+    };
+    list.appendChild(btn);
+  });
+}
+function openHistory() { renderHistory(); $('#history-panel').classList.remove('hidden'); }
+function closeHistory() { $('#history-panel').classList.add('hidden'); }
+
+$('#history-btn').onclick = openHistory;
+$('#close-history').onclick = closeHistory;
+$('#history-backdrop').onclick = closeHistory;
+$('#clear-history').onclick = () => { localStorage.removeItem(HIST_KEY); updateHistoryBadge(); renderHistory(); showToast('History cleared'); };
+
+/* ═══════════ KEYBOARD ═══════════ */
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement !== input && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault(); input.focus(); input.select();
+  }
+  if (e.key === 'Escape') { closeHistory(); input.blur(); }
+});
+
+/* ═══════════ BOOT ═══════════ */
+initTheme();
+updateHistoryBadge();
+input.focus();
+
+})();
+</script>
+</body>
+</html>

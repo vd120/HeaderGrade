@@ -1,0 +1,17 @@
+{
+  "name": "security-header-auditor",
+  "version": "1.0.0",
+  "description": "Web Security Headers Auditor with Threat Intelligence",
+  "type": "module",
+  "engines": { "node": ">=18.0.0" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.2.0"
+  }
+}
